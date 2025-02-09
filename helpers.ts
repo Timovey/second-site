@@ -93,7 +93,7 @@ const filesUpload = upload.fields([
 	{ name: 'file2', maxCount: 1 }
 ]);
 
-function getFileData(text: string, metric: number) {
+function getResponseData(text: string, metric: number) {
 	return `Для запроса ${text} сходство (расстояние Левинштейна) равно ${metric}`;
 }
 
@@ -109,18 +109,6 @@ function validateBody(text: string, file1: any, file2: any): string[] {
 	return errors;
 }
 
-function sendResponseFile(
-	res: Response,
-	text: string,
-	textFile1: string,
-	textFile2: string
-) {
-	const distance = compare.levenshtein.distance(textFile1, textFile2);
-	const pathDownloadFile = path.join(process.cwd(), RESPONSE_FILE_NAME);
-	fs.writeFileSync(pathDownloadFile, getFileData(text, distance));
-
-	return res.download(pathDownloadFile);
-}
 function handle(req: Request, res: Response, next: NextFunction) {
 	try {
 		const acceptedTypes = req.headers.accept?.split(',');
@@ -153,7 +141,11 @@ function handle(req: Request, res: Response, next: NextFunction) {
 				const textFile1 = file1[0].buffer.toString();
 				const textFile2 = file2[0].buffer.toString();
 
-				return sendResponseFile(res, text, textFile1, textFile2);
+				const distance = compare.levenshtein.distance(textFile1, textFile2);
+				const pathDownloadFile = path.join(process.cwd(), RESPONSE_FILE_NAME);
+				fs.writeFileSync(pathDownloadFile, getResponseData(text, distance));
+
+				return res.download(pathDownloadFile);
 			});
 		} else if (method == 'POST') {
 			const { text, file1, file2 } = req.body;
@@ -166,7 +158,11 @@ function handle(req: Request, res: Response, next: NextFunction) {
 			const textFile1 = Buffer.from(file1, 'base64').toString();
 			const textFile2 = Buffer.from(file2, 'base64').toString();
 
-			return sendResponseFile(res, text, textFile1, textFile2);
+			const distance = compare.levenshtein.distance(textFile1, textFile2);
+
+			return res.json({
+				data: getResponseData(text, distance)
+			});
 		} else {
 			return res.json({
 				help: 'Отправьте запрос с данными. Файлы кодируйте в Base64.',
